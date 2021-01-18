@@ -69,7 +69,6 @@ fn main() {
         // четыре раза вместо одного. Исправляем.
         result -= 4 * get_max_number(free_steps as u32) + 3;
     }
-
     println!("{}", result);
 }
 
@@ -91,34 +90,37 @@ fn _run_per_digit(step: u16, place: u8, cache: &mut HashMap<(u16, u8), u128>) ->
         return value;
     }
     let result;
-    let offset: u16 = match place {
+    let breakpoint: u16 = match place {
         0 => 0,
-        _ => place as u16 * 9 - 1,
+        _ => 9 * place as u16 - 1,
     };
-    if step < offset {
+    if step < breakpoint {
         result = _run_per_digit(step, place - 1, cache);
-    } else if step < offset + SQUARE.len() as u16 {
-        let weights = SQUARE[..=(step - offset) as usize].iter().rev();
+    } else if step < breakpoint + SQUARE.len() as u16 {
+        let weights = SQUARE[..=(step - breakpoint) as usize].iter().rev();
         result = match place {
             0 => weights.map(|&x| x as u128).sum(),
-            _ => weights
-                .enumerate()
-                .map(|(pos, &x)| x as u128 * _run_per_digit(pos as u16 + offset, place - 1, cache))
-                .sum(),
-        };
-    } else {
-        // step >= offset + SQUARE.len()
-        let weights = SQUARE.iter();
-        result = match place {
-            0 => 100,
             _ => {
-                let offset = step - SQUARE.len() as u16;
                 let place = place - 1;
                 weights
                     .enumerate()
                     .map(|(pos, &x)| {
-                        x as u128 * _run_per_digit((pos + 1) as u16 + offset, place, cache)
+                        x as u128 * _run_per_digit(pos as u16 + breakpoint, place, cache)
                     })
+                    .sum()
+            }
+        };
+    } else {
+        // step >= breakpoint + SQUARE.len()
+        let weights = SQUARE.iter();
+        result = match place {
+            0 => 100,
+            _ => {
+                let offset = step - SQUARE.len() as u16 + 1;
+                let place = place - 1;
+                weights
+                    .enumerate()
+                    .map(|(pos, &x)| x as u128 * _run_per_digit(pos as u16 + offset, place, cache))
                     .sum()
             }
         };
@@ -195,12 +197,15 @@ fn get_reserved_steps(steps: u16, x: i64, y: i64) -> (u16, u16) {
     // нет смысла проверять - их не изменить без изменения младших.
     for (pos, &(x_digit, y_digit)) in xy_digits.iter().enumerate() {
         free_steps = steps - reserved_x_steps - reserved_y_steps;
-        if free_steps >= max(1, 9 * pos) as u16 - 1 {
-            reserved_x_steps -= x_digit as u16;
-            reserved_y_steps -= y_digit as u16;
-        } else {
-            break;
+        let breakpoint = match pos {
+            0 => 0,
+            _ => 9 * pos as u16 - 1,
         };
+        if free_steps < breakpoint {
+            break;
+        }
+        reserved_x_steps -= x_digit as u16;
+        reserved_y_steps -= y_digit as u16;
     }
     (reserved_x_steps, reserved_y_steps)
 }
